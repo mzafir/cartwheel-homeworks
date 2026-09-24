@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    redis==5.0.1 \
+    flask==3.0.0 \
+    flask-cors==4.0.0 \
+    fuzzywuzzy==0.18.0 \
+    python-Levenshtein==0.23.0
+
+# Copy files
+COPY prompt_cache.py .
+COPY prompt_api.py .
+
+EXPOSE 5000
+
+CMD ["python", "prompt_api.py"]

@@ -178,11 +178,6 @@ For example:
 
 ## Part C, identify and test a missing model instruction
 
-Compare `SPEC.md` with `SYSTEM_PROMPT_TEMPLATE` in `agent/agent.py`. Identify one requirement that is absent from the system prompt or expressed too vaguely, then design a conversation that tests whether the omission affects the agent's behavior. A conversation from Part B may serve as the test when it examines the requirement you identified.
-
-If the agent fails the test while the tools behave correctly, add the smallest instruction needed to address the observed failure. Repeat the same conversation and save the response before and after the revision.
-
-If the agent already satisfies the requirement, test another possible omission. Do not revise the prompt unless a recorded conversation provides evidence for the revision. If none of your conversations reveals a failure caused by the prompt, explain which possible omissions you tested and why no revision was justified.
 
 ## Files to commit
 

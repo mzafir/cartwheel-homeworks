@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartwheel Support Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 { font-size: 2.5em; margin-bottom: 5px; }
+        header p { opacity: 0.9; font-size: 1.1em; }
+        
+        .main-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab:hover {
+            color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .config-section {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .config-section:last-child {
+            border-bottom: none;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        
+        button:hover { background: #5568d3; }
+        button:active { transform: scale(0.98); }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 400px;
+            max-height: 600px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .user-message .message-header {
+            color: #667eea;
+        }
+        
+        .agent-message .message-header {
+            color: #764ba2;
+        }
+        
+        .message-content {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            line-height: 1.5;
+        }
+        
+        .user-message .message-content {
+            border-left-color: #667eea;
+            margin-left: 20px;
+        }
+        
+        .agent-message .message-content {
+            border-left-color: #764ba2;
+        }
+        
+        .tool-calls {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        
+        .tool-call {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #ffa500;
+        }
+        
+        .tool-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .tool-args, .tool-result {
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: #fafafa;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+            font-size: 0.8em;
+            word-break: break-all;
+        }
+        
+        .input-section {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-section input {
+            flex: 1;
+        }
+        
+        .input-section button {
+            width: auto;
+            padding: 12px 20px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .main-wrapper {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 { font-size: 1.8em; }
+        }
+        
+        .trace-card {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-left: 4px solid #667eea;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .trace-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .trace-type {
+            display: inline-block;
+            font-size: 0.75em;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+        
+        .trace-content {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-size: 0.9em;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #555;
+        }
+        
+        .feedback-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .feedback-btn {
+            background: none;
+            border: 2px solid #ddd;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.2s;
+            width: auto;
+        }
+        
+        .feedback-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .feedback-btn.active-positive {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #28a745;
+        }
+        
+        .feedback-btn.active-negative {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+        
+        .annotation-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .tags-container {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            cursor: pointer;
+            border: 1px solid #667eea;
+            transition: all 0.2s;
+        }
+        
+        .tag:hover {
+            background: transparent;
+            color: #667eea;
+        }
+        
+        .tag.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .tag:not(.selected) {
+            background: transparent;
+            color: #667eea;
+        }
+        
+        .feedback-save {
+            width: auto;
+            margin-top: 10px;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 Cartwheel Support Agent</h1>
+            <p>Interactive Testing Interface</p>
+        </header>
+        
+        <div class="main-wrapper">
+            <!-- Sidebar -->
+            <div class="panel sidebar">
+                <div class="config-section">
+                    <label for="role-select">Role</label>
+                    <select id="role-select">
+                        <option value="shopper">Shopper</option>
+                        <option value="merchant">Merchant</option>
+                        <option value="support">Support</option>
+                    </select>
+                </div>
+                
+                <div class="config-section">
+                    <label for="user-select">User ID</label>
+                    <select id="user-select">
+                        <option value="1">Shopper 1</option>
+                        <option value="2">Shopper 2</option>
+                        <option value="9002">Merchant 9002 (Store 2)</option>
+                        <option value="9003">Merchant 9003 (Store 3)</option>
+                        <option value="9501">Support 9501</option>
+                    </select>
+                </div>
+                
+                <button id="start-session-btn" onclick="startSession()">
+                    Start New Session
+                </button>
+                
+                <div id="status" class="status disconnected">
+                    Not connected
+                </div>
+                
+                <div class="config-section">
+                    <label>Session Info</label>
+                    <div style="padding: 10px; background: #f5f5f5; border-radius: 4px; font-size: 0.85em;">
+                        <div style="margin-bottom: 5px;"><strong>Session ID:</strong></div>
+                        <div id="session-id" style="word-break: break-all; font-family: monospace; font-size: 0.75em;">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat Panel -->
+            <div class="panel chat-panel">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('chat')">💬 Chat</button>
+                    <button class="tab" onclick="switchTab('traces')">🔍 LLM Traces</button>
+                    <button class="tab" onclick="switchTab('logs')">📋 Logs & Traces</button>
+                </div>
+                
+                <!-- Chat Tab -->
+                <div id="chat-tab" class="tab-content active">
+                    <div id="messages" class="messages-container">
+                        <div style="text-align: center; color: #999; padding: 40px 20px;">
+                            Start a new session and ask a question to begin chatting with the support agent.
+                        </div>
+                    </div>
+                    
+                    <div id="error-container"></div>
+                    
+                    <div style="position: relative;">
+                        <div id="prompt-autocomplete" style="display: none; position: absolute; bottom: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 6px 6px 0 0; max-height: 300px; overflow-y: auto; margin-bottom: 5px; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 1000;">
+                            <!-- Autocomplete suggestions populated by JS -->
+                        </div>
+                        
+                        <div class="input-section">
+                            <input 
+                                id="message-input" 
+                                type="text" 
+                                placeholder="Ask the support agent..." 
+                                disabled
+                                oninput="handlePromptInput(this.value)"
+                                onkeydown="handlePromptKeydown(event)"
+                            >
+                            <button id="send-btn" onclick="sendMessage()" disabled>
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- LLM Traces Tab -->
+                <div id="traces-tab" class="tab-content">
+                    <div id="traces-container" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                        <div style="text-align: center; color: #999; padding: 40px 20px;">
+                            LLM traces and responses will appear here with feedback options.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Logs Tab -->
+                <div id="logs-tab" class="tab-content">
+                    <div id="logs-container" style="flex: 1; overflow-y: auto; padding: 15px; background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 0.85em; border-radius: 6px;">
+                        <div style="color: #999; text-align: center; padding: 40px 20px;">
+                            Logs will appear here as you interact with the agent.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let sessionId = null;
+        let token = null;
+        const API_URL = "http://localhost:8010";
+        let logs = [];
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.getElementById("chat-tab").classList.remove("active");
+            document.getElementById("traces-tab").classList.remove("active");
+            document.getElementById("logs-tab").classList.remove("active");
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+            
+            // Show selected tab
+            if (tabName === "chat") {
+                document.getElementById("chat-tab").classList.add("active");
+                document.querySelectorAll(".tab")[0].classList.add("active");
+            } else if (tabName === "traces") {
+                document.getElementById("traces-tab").classList.add("active");
+                document.querySelectorAll(".tab")[1].classList.add("active");
+                loadTraces();
+            } else if (tabName === "logs") {
+                document.getElementById("logs-tab").classList.add("active");
+                document.querySelectorAll(".tab")[2].classList.add("active");
+            }
+        }
+        
+        async function loadTraces() {
+            if (!sessionId || !token) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/sessions/${sessionId}/traces`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) throw new Error("Failed to load traces");
+                
+                const data = await response.json();
+                displayTraces(data.traces);
+            } catch (error) {
+                addLog("error", "Failed to load traces", {error: error.message});
+            }
+        }
+        
+        function displayTraces(tracesData) {
+            const container = document.getElementById("traces-container");
+            container.innerHTML = "";
+            
+            if (!tracesData.llm_traces || tracesData.llm_traces.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: #999; padding: 40px 20px;">No traces yet. Have a conversation first!</div>`;
+                return;
+            }
+            
+            // Display LLM traces
+            tracesData.llm_traces.forEach(trace => {
+                const traceCard = createTraceCard(trace, "llm_response", tracesData.feedback || []);
+                container.appendChild(traceCard);
+            });
+            
+            // Display tool call traces
+            if (tracesData.tool_traces && tracesData.tool_traces.length > 0) {
+                tracesData.tool_traces.forEach(trace => {
+                    const traceCard = createTraceCard(trace, "tool_call", tracesData.feedback || []);
+                    container.appendChild(traceCard);
+                });
+            }
+        }
+        
+        function createTraceCard(trace, traceType, feedback) {
+            const card = document.createElement("div");
+            card.className = "trace-card";
+            
+            // Get feedback for this trace
+            const traceFeedback = feedback.find(f => f.trace_id === trace.id);
+            
+            let content = "";
+            if (traceType === "llm_response") {
+                content = `
+                    <div class="trace-header">
+                        <div>LLM Response <span class="trace-type">RESPONSE</span></div>
+                        <small style="color: #999;">${new Date(trace.timestamp).toLocaleTimeString()}</small>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong style="color: #666;">User:</strong>
+                        <div class="trace-content">${escapeHtml(trace.user_message)}</div>
+                    </div>
+                    <div>
+                        <strong style="color: #666;">Agent Response:</strong>
+                        <div class="trace-content">${escapeHtml(trace.assistant_response)}</div>
+                    </div>
+                `;
+            } else {
+                const result = typeof trace.result === "string" ? trace.result : JSON.stringify(trace.result, null, 2);
+                const args = typeof trace.arguments === "string" ? trace.arguments : JSON.stringify(trace.arguments, null, 2);
+                content = `
+                    <div class="trace-header">
+                        <div>${trace.tool_name} <span class="trace-type">TOOL</span></div>
+                        <small style="color: #999;">${new Date(trace.timestamp).toLocaleTimeString()}</small>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong style="color: #666;">Arguments:</strong>
+                        <div class="trace-content"><pre style="margin: 0; overflow-x: auto;">${escapeHtml(args)}</pre></div>
+                    </div>
+                    <div>
+                        <strong style="color: #666;">Result:</strong>
+                        <div class="trace-content"><pre style="margin: 0; overflow-x: auto;">${escapeHtml(result)}</pre></div>
+                    </div>
+                `;
+            }
+            
+            const tagList = ['hallucination', 'error', 'slow', 'unclear', 'great', 'expected', 'unexpected'];
+            const state = feedbackState[trace.id] || (feedbackState[trace.id] = {
+                rating: traceFeedback?.rating ?? null,
+                annotation: traceFeedback?.annotation || '',
+                tags: Array.isArray(traceFeedback?.tags) ? [...traceFeedback.tags] : [],
+                traceType,
+            });
+            
+            content += `
+                <div class="feedback-section">
+                    <button class="feedback-btn ${state.rating === 1 ? 'active-positive' : ''}" 
+                            id="up-${trace.id}" onclick="setRating('${trace.id}', 1)">👍</button>
+                    <button class="feedback-btn ${state.rating === -1 ? 'active-negative' : ''}" 
+                            id="down-${trace.id}" onclick="setRating('${trace.id}', -1)">👎</button>
+                    <span id="status-${trace.id}" style="margin-left: auto; font-size: 0.9em; color: #999;">
+                        ${traceFeedback ? '✓ Saved ' + new Date(traceFeedback.created_at).toLocaleTimeString() : 'No feedback yet'}
+                    </span>
+                </div>
+                
+                <div>
+                    <textarea class="annotation-input" id="annotation-${trace.id}" 
+                              placeholder="Add notes or concerns about this response..."
+                              oninput="feedbackState['${trace.id}'].annotation = this.value">${escapeHtml(state.annotation)}</textarea>
+                </div>
+                
+                <div class="tags-container" id="tags-${trace.id}">
+                    ${tagList.map(tag => `
+                        <span class="tag ${state.tags.includes(tag) ? 'selected' : ''}" 
+                              data-tag="${tag}" onclick="toggleTag('${trace.id}', '${tag}')">${tag}</span>
+                    `).join('')}
+                </div>
+                
+                <button class="feedback-save" onclick="submitFeedback('${trace.id}')">Save feedback</button>
+            `;
+            
+            card.innerHTML = content;
+            return card;
+        }
+        
+        const feedbackState = {};
+        
+        function setRating(traceId, rating) {
+            const s = feedbackState[traceId];
+            s.rating = s.rating === rating ? null : rating;
+            document.getElementById(`up-${traceId}`).className = `feedback-btn ${s.rating === 1 ? 'active-positive' : ''}`;
+            document.getElementById(`down-${traceId}`).className = `feedback-btn ${s.rating === -1 ? 'active-negative' : ''}`;
+        }
+        
+        function toggleTag(traceId, tag) {
+            const s = feedbackState[traceId];
+            const i = s.tags.indexOf(tag);
+            if (i >= 0) s.tags.splice(i, 1); else s.tags.push(tag);
+            document.querySelectorAll(`#tags-${CSS.escape(traceId)} .tag`).forEach(el => {
+                el.classList.toggle('selected', s.tags.includes(el.dataset.tag));
+            });
+        }
+        
+        async function submitFeedback(traceId) {
+            if (!sessionId || !token) return;
+            const s = feedbackState[traceId];
+            const statusEl = document.getElementById(`status-${traceId}`);
+            statusEl.textContent = 'Saving…';
+            
+            try {
+                const response = await fetch(`${API_URL}/sessions/${sessionId}/feedback`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        trace_id: traceId,
+                        trace_type: s.traceType,
+                        rating: s.rating,
+                        annotation: s.annotation,
+                        tags: s.tags
+                    })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                
+                statusEl.textContent = '✓ Saved ' + new Date().toLocaleTimeString();
+                addLog("success", `Feedback saved for ${traceId}`, {feedback_id: data.feedback_id, rating: s.rating, annotation: s.annotation, tags: s.tags});
+            } catch (error) {
+                statusEl.textContent = '✗ Save failed';
+                addLog("error", "Failed to submit feedback", {error: error.message});
+            }
+        }
+        
+        function addLog(level, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                level,
+                message,
+                data
+            };
+            logs.push(logEntry);
+            
+            const logsContainer = document.getElementById("logs-container");
+            
+            // Clear placeholder if needed
+            if (logsContainer.textContent.includes("Logs will appear here")) {
+                logsContainer.innerHTML = "";
+            }
+            
+            let levelColor = "#4ec9b0";
+            if (level === "error") levelColor = "#f48771";
+            else if (level === "warn") levelColor = "#dcdcaa";
+            else if (level === "debug") levelColor = "#858585";
+            
+            let html = `<div style="margin-bottom: 8px; border-left: 3px solid ${levelColor}; padding-left: 10px;">
+                <span style="color: #858585;">[${timestamp}]</span> 
+                <span style="color: ${levelColor}; font-weight: bold;">${level.toUpperCase()}</span>
+                <span style="color: #d4d4d4;"> ${escapeHtml(message)}</span>`;
+            
+            if (data) {
+                html += `<div style="margin-top: 5px; padding: 8px; background: #2d2d2d; border-radius: 3px; overflow-x: auto;">
+                    <pre style="margin: 0; font-size: 0.8em;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+                </div>`;
+            }
+            
+            html += `</div>`;
+            
+            const logDiv = document.createElement("div");
+            logDiv.innerHTML = html;
+            logsContainer.appendChild(logDiv);
+            
+            // Auto-scroll to bottom
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+        
+        let cachedPrompts = [];
+        let autocompleteIndex = 0;
+        let promptsLoaded = false;
+        
+        // Load cached prompts on first use (lazy load)
+        async function loadCachedPromptsForChat() {
+            if (promptsLoaded) return;
+            promptsLoaded = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/prompts?limit=100`);
+                const data = await response.json();
+                cachedPrompts = data.prompts || [];
+                console.log(`✓ Loaded ${cachedPrompts.length} prompts into cache`);
+            } catch (error) {
+                console.error("Failed to load cached prompts:", error);
+                promptsLoaded = false;
+            }
+        }
+        
+        function fuzzyMatchPrompts(query) {
+            if (!query || query.length === 0) {
+                return cachedPrompts.slice(0, 5);
+            }
+            
+            const matches = cachedPrompts.map(p => {
+                // Simple fuzzy scoring: check if query appears in name or text
+                let score = 0;
+                const lowerName = (p.name || '').toLowerCase();
+                const lowerText = (p.text || '').toLowerCase();
+                const lowerQuery = query.toLowerCase();
+                
+                // Match in name (higher priority)
+                if (lowerName.includes(lowerQuery)) {
+                    score += 100;
+                    if (lowerName.startsWith(lowerQuery)) score += 50;
+                }
+                
+                // Match in text (also search)
+                if (lowerText.includes(lowerQuery)) {
+                    score += 50;
+                    if (lowerText.startsWith(lowerQuery)) score += 25;
+                }
+                
+                // Match in tags
+                if (p.tags && p.tags.some(t => t.toLowerCase().includes(lowerQuery))) {
+                    score += 30;
+                }
+                
+                return {prompt: p, score};
+            })
+            .filter(m => m.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5)
+            .map(m => m.prompt);
+            
+            return matches;
+        }
+        
+        async function handlePromptInput(value) {
+            const autocompleteDiv = document.getElementById("prompt-autocomplete");
+            
+            // Load prompts on first input
+            if (!promptsLoaded) {
+                await loadCachedPromptsForChat();
+            }
+            
+            // Show autocomplete as user types (no @ needed)
+            if (value.length === 0) {
+                autocompleteDiv.style.display = "none";
+                return;
+            }
+            
+            const results = fuzzyMatchPrompts(value);
+            displayAutocomplete(results);
+        }
+        
+        function displayAutocomplete(prompts) {
+            const autocompleteDiv = document.getElementById("prompt-autocomplete");
+            
+            if (prompts.length === 0) {
+                autocompleteDiv.style.display = "none";
+                return;
+            }
+            
+            autocompleteDiv.innerHTML = '';
+            autocompleteDiv.style.display = "block";
+            autocompleteIndex = 0;
+            
+            prompts.forEach((p, i) => {
+                const item = document.createElement("div");
+                item.style.cssText = `
+                    padding: 12px 15px;
+                    cursor: pointer;
+                    border-bottom: 1px solid #eee;
+                    transition: background 0.2s;
+                    font-size: 0.9em;
+                `;
+                
+                const tagStr = p.tags && p.tags.length ? ` • ${p.tags.slice(0, 2).join(', ')}` : '';
+                
+                item.innerHTML = `
+                    <div style="font-weight: 600; color: #333; margin-bottom: 4px;">
+                        ${escapeHtml(p.name || p.id)}${tagStr}
+                    </div>
+                    <div style="color: #999; font-size: 0.85em; line-height: 1.3;">
+                        ${escapeHtml(p.text.substring(0, 80))}...
+                    </div>
+                `;
+                
+                item.onmouseover = () => {
+                    item.style.background = "#f0f0ff";
+                    autocompleteIndex = i;
+                };
+                item.onmouseout = () => item.style.background = "white";
+                
+                item.onclick = () => {
+                    selectPromptFromAutocomplete(p);
+                };
+                
+                item.dataset.index = i;
+                autocompleteDiv.appendChild(item);
+            });
+        }
+        
+        function selectPromptFromAutocomplete(prompt) {
+            const msgInput = document.getElementById("message-input");
+            msgInput.value = prompt.text;
+            msgInput.focus();
+            
+            const autocompleteDiv = document.getElementById("prompt-autocomplete");
+            autocompleteDiv.style.display = "none";
+            
+            addLog("info", `Loaded prompt: ${prompt.name || prompt.id}`, null);
+        }
+        
+        function handlePromptKeydown(event) {
+            const autocompleteDiv = document.getElementById("prompt-autocomplete");
+            if (autocompleteDiv.style.display !== "block") return;
+            
+            const items = autocompleteDiv.querySelectorAll("div");
+            if (items.length === 0) return;
+            
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                autocompleteIndex = (autocompleteIndex + 1) % items.length;
+                items[autocompleteIndex].scrollIntoView({block: "nearest"});
+                items[autocompleteIndex].onmouseover();
+            } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                autocompleteIndex = (autocompleteIndex - 1 + items.length) % items.length;
+                items[autocompleteIndex].scrollIntoView({block: "nearest"});
+                items[autocompleteIndex].onmouseover();
+            } else if (event.key === "Enter") {
+                event.preventDefault();
+                items[autocompleteIndex].click();
+            }
+        }
+        
+        // Initialize event listeners at page load
+        document.getElementById("role-select").addEventListener("change", updateUserOptions);
+        
+        function updateUserOptions() {
+            const role = document.getElementById("role-select").value;
+            const userSelect = document.getElementById("user-select");
+            const currentValue = userSelect.value;
+            
+            const options = {
+                shopper: [
+                    { value: "1", text: "Shopper 1 (orders 4127, 3980, 4455)" },
+                    { value: "2", text: "Shopper 2" }
+                ],
+                merchant: [
+                    { value: "9002", text: "Merchant 9002 (Store 2)" },
+                    { value: "9003", text: "Merchant 9003 (Store 3)" }
+                ],
+                support: [
+                    { value: "9501", text: "Support 9501" }
+                ]
+            };
+            
+            userSelect.innerHTML = options[role]
+                .map(opt => `<option value="${opt.value}">${opt.text}</option>`)
+                .join("");
+        }
+        
+        updateUserOptions();
+        
+        async function startSession(keepChat = false) {
+            const role = document.getElementById("role-select").value;
+            const userId = parseInt(document.getElementById("user-select").value);
+            
+            addLog("info", `Starting new session`, {role, user_id: userId});
+            setStatus("loading", "Creating session...");
+            
+            try {
+                const response = await fetch(`${API_URL}/sessions`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ role, user_id: userId })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    addLog("error", `Session creation failed: ${error.detail}`, error);
+                    throw new Error(error.detail || "Failed to create session");
+                }
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                token = data.token;
+                Object.keys(feedbackState).forEach(k => delete feedbackState[k]);
+                
+                addLog("success", `Session created`, {
+                    session_id: sessionId,
+                    role,
+                    user_id: userId
+                });
+                
+                document.getElementById("session-id").textContent = sessionId;
+                setStatus("connected", `Connected as ${role} (user ${userId})`);
+                
+                // Enable input
+                document.getElementById("message-input").disabled = false;
+                document.getElementById("send-btn").disabled = false;
+                document.getElementById("message-input").focus();
+                
+                if (keepChat) return;
+                
+                // Clear messages
+                document.getElementById("messages").innerHTML = `
+                    <div style="text-align: center; color: #999; padding: 40px 20px;">
+                        <strong>Session started!</strong><br>
+                        Role: <strong>${role}</strong> | User: <strong>${userId}</strong><br><br>
+                        Ask your question below.
+                    </div>
+                `;
+            } catch (error) {
+                addLog("error", `Exception during session creation`, {error: error.message});
+                showError("Failed to create session: " + error.message);
+                setStatus("disconnected", "Connection failed");
+            }
+        }
+        
+        async function sendMessage() {
+            if (!sessionId || !token) {
+                showError("Please start a session first");
+                addLog("warn", "Attempted to send message without active session");
+                return;
+            }
+            
+            const input = document.getElementById("message-input");
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            addLog("info", "User message", {message});
+            
+            // Clear input and disable
+            input.value = "";
+            input.disabled = true;
+            document.getElementById("send-btn").disabled = true;
+            
+            // Add user message to chat
+            addMessage("user", message, null);
+            
+            try {
+                addLog("debug", "Sending request to agent", {
+                    session_id: sessionId,
+                    message
+                });
+                
+                let response = await fetch(`${API_URL}/sessions/${sessionId}/messages`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+                
+                // Server restarted and dropped the in-memory session: recreate and retry once
+                if (response.status === 404) {
+                    addLog("warn", "Session expired (server restarted); creating a new one and retrying");
+                    await startSession(true);
+                    response = await fetch(`${API_URL}/sessions/${sessionId}/messages`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ message })
+                    });
+                }
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    let detail = text;
+                    try { detail = JSON.parse(text).detail || text; } catch (_) {}
+                    addLog("error", `Agent request failed with status ${response.status}`, {detail});
+                    throw new Error(detail || "Agent call failed");
+                }
+                
+                const data = await response.json();
+                
+                addLog("success", "Agent response received", {
+                    reply_length: data.reply?.length || 0,
+                    tool_calls_count: (data.tool_calls || []).length,
+                    prompt_version: data.prompt_version
+                });
+                
+                if (data.tool_calls && data.tool_calls.length > 0) {
+                    addLog("debug", `Agent called ${data.tool_calls.length} tool(s)`, 
+                        data.tool_calls.map(tc => ({
+                            name: tc.name,
+                            arguments: tc.arguments,
+                            result: tc.result
+                        }))
+                    );
+                }
+                
+                // Add agent response
+                addMessage("agent", data.reply, data.tool_calls || []);
+                
+                // Auto-load traces if that tab is active
+                if (document.getElementById("traces-tab").classList.contains("active")) {
+                    loadTraces();
+                }
+            } catch (error) {
+                addLog("error", `Exception during agent call`, {error: error.message});
+                showError("Error: " + error.message);
+                addMessage("agent", "Sorry, I encountered an error processing your request.", []);
+            } finally {
+                // Re-enable input
+                input.disabled = false;
+                document.getElementById("send-btn").disabled = false;
+                input.focus();
+            }
+        }
+        
+        function addMessage(role, text, toolCalls) {
+            const container = document.getElementById("messages");
+            
+            // Clear the initial placeholder if it exists
+            if (container.children.length === 1 && container.children[0].textContent.includes("Start a new session")) {
+                container.innerHTML = "";
+            }
+            
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${role}-message`;
+            
+            let html = `
+                <div class="message-header">${role === "user" ? "You" : "Support Agent"}</div>
+                <div class="message-content">${escapeHtml(text)}`;
+            
+            if (toolCalls && toolCalls.length > 0) {
+                html += `<div class="tool-calls">
+                    <strong>Tools Used:</strong>`;
+                
+                for (const call of toolCalls) {
+                    html += `
+                        <div class="tool-call">
+                            <div class="tool-name">🔧 ${escapeHtml(call.name)}</div>
+                            <div class="tool-args"><strong>Args:</strong> ${escapeHtml(JSON.stringify(call.arguments))}</div>
+                            <div class="tool-result"><strong>Result:</strong> ${escapeHtml(JSON.stringify(call.result))}</div>
+                        </div>`;
+                }
+                
+                html += `</div>`;
+            }
+            
+            html += `</div>`;
+            messageDiv.innerHTML = html;
+            container.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function setStatus(className, text) {
+            const status = document.getElementById("status");
+            status.className = `status ${className}`;
+            status.textContent = text;
+        }
+        
+        function showError(message) {
+            const container = document.getElementById("error-container");
+            container.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+            setTimeout(() => { container.innerHTML = ""; }, 5000);
+        }
+        
+        function escapeHtml(text) {
+            const map = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        // Allow Enter to send
+        document.getElementById("message-input").addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
