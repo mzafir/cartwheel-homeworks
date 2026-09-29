@@ -38,14 +38,16 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from langfuse import LangfuseOtelSpanAttributes
 from opentelemetry import trace
 from pydantic import BaseModel
 
 from agent import db, feedback
-from agent.agent import build_agent, prompt_version, render_system_prompt
+from agent.agent import build_agent, prompt_version
 from agent.auth import ROLES, AuthContext
 from agent.config import REPO_ROOT, db_path
 from observability.instrument import load_env, setup_tracing
+from server.homework_progress import build_homework_progress
 
 MAX_TURNS = 12  # cap runaway loops; keeps conversations bounded
 SESSIONS_DB = REPO_ROOT / ".sessions.db"
@@ -216,23 +218,63 @@ async def post_message(
     """
     ctx = _authorize(session_id, authorization)
     _, session = _SESSIONS[session_id]
-    
-    agent = build_agent(ctx)
-    version = prompt_version(render_system_prompt(ctx))
-    
+
+    agent = build_agent(ctx, model=body.model)
+    version = prompt_version()
+    capture = os.environ.get("TRACELOOP_TRACE_CONTENT", "false").lower() == "true"
+
     with _tracer.start_as_current_span("cartwheel.session_message") as span:
-        span.set_attribute("cartwheel.user_role", ctx.role)
-        span.set_attribute("cartwheel.user_id", str(ctx.user_id))
-        span.set_attribute("cartwheel.prompt_version", version)
-        if body.scenario_id:
-            span.set_attribute("cartwheel.scenario_id", body.scenario_id)
-        
+        if span.is_recording():
+            attributes = {
+                "cartwheel.session_id": session_id,
+                "cartwheel.user_role": ctx.role,
+                "cartwheel.user_id": str(ctx.user_id),
+                "cartwheel.prompt_version": version,
+            }
+            if body.scenario_id:
+                attributes["cartwheel.scenario_id"] = body.scenario_id
+            for name, value in attributes.items():
+                span.set_attribute(name, value)
+                span.set_attribute(
+                    f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{name}", value
+                )
+                span.set_attribute(
+                    f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.{name}", value
+                )
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_NAME, "cartwheel.session_message")
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_SESSION_ID, session_id)
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_USER_ID, str(ctx.user_id))
+            if capture:
+                span.set_attribute(
+                    "gen_ai.input.messages",
+                    json.dumps(
+                        [
+                            {
+                                "role": "user",
+                                "parts": [{"type": "text", "content": body.message}],
+                            }
+                        ]
+                    ),
+                )
+
         result = await Runner.run(
             agent, body.message, session=session, context=ctx, max_turns=MAX_TURNS
         )
+        reply = str(result.final_output)
+        if span.is_recording() and capture:
+            span.set_attribute(
+                "gen_ai.output.messages",
+                json.dumps(
+                    [
+                        {
+                            "role": "assistant",
+                            "parts": [{"type": "text", "content": reply}],
+                        }
+                    ]
+                ),
+            )
 
     tool_calls = _extract_tool_calls(result)
-    reply = str(result.final_output)
     tool_trace_ids = [
         feedback.log_tool_call(session_id, tc["name"], tc["arguments"], tc["result"])
         for tc in tool_calls
@@ -407,3 +449,9 @@ def health() -> dict[str, Any]:
         "db_exists": db_path().exists(),
         "active_sessions": len(_SESSIONS),
     }
+
+
+@app.get("/api/homework-progress")
+def homework_progress() -> dict[str, Any]:
+    """Return live homework milestones derived from repository evidence."""
+    return build_homework_progress(REPO_ROOT)

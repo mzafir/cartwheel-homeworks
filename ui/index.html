@@ -30,7 +30,7 @@
         
         .main-wrapper {
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
             gap: 20px;
         }
         
@@ -39,6 +39,7 @@
             border-radius: 12px;
             padding: 25px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            min-width: 0;
         }
         
         .chat-panel {
@@ -48,14 +49,18 @@
         }
         
         .tabs {
-            display: flex;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0;
             margin-bottom: 15px;
             border-bottom: 2px solid #e0e0e0;
+            min-width: 0;
         }
         
         .tab {
-            padding: 10px 15px;
+            width: auto;
+            min-width: 0;
+            padding: 10px 8px;
             background: none;
             border: none;
             cursor: pointer;
@@ -79,6 +84,7 @@
             display: none;
             flex: 1;
             overflow-y: auto;
+            min-width: 0;
         }
         
         .tab-content.active {
@@ -220,6 +226,9 @@
             border-radius: 6px;
             border-left: 4px solid #667eea;
             line-height: 1.5;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
         }
         
         .user-message .message-content {
@@ -313,6 +322,7 @@
             border-radius: 6px;
             padding: 15px;
             margin-bottom: 10px;
+            min-width: 0;
         }
         
         .trace-header {
@@ -342,8 +352,15 @@
             font-size: 0.9em;
             line-height: 1.5;
             max-height: 200px;
-            overflow-y: auto;
+            overflow: auto;
+            overflow-wrap: anywhere;
             color: #555;
+        }
+
+        .trace-content pre {
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre;
         }
         
         .feedback-section {
@@ -435,6 +452,64 @@
             padding: 8px 16px;
             font-size: 0.9em;
         }
+
+        .rubric-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .rubric-toolbar button { width: auto; padding: 8px 12px; }
+        .rubric-summary { color: #555; font-size: 0.9em; }
+        .rubric-list { display: flex; flex-direction: column; gap: 12px; }
+        .homework-row { border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+        .homework-heading {
+            display: grid;
+            grid-template-columns: 64px minmax(180px, 1fr) 110px 84px;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 12px;
+            background: #f7f7f8;
+            cursor: pointer;
+        }
+        .homework-heading strong { color: #222; }
+        .homework-title { color: #444; font-size: 0.92em; }
+        .rubric-status {
+            display: inline-flex;
+            justify-content: center;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .rubric-status.complete { background: #d4edda; color: #155724; }
+        .rubric-status.in_progress { background: #fff3cd; color: #856404; }
+        .rubric-status.pending { background: #f1f1f1; color: #666; }
+        .milestone-table { width: 100%; border-collapse: collapse; font-size: 0.84em; }
+        .milestone-table th, .milestone-table td {
+            padding: 9px 10px;
+            border-top: 1px solid #e5e5e5;
+            text-align: left;
+            vertical-align: top;
+        }
+        .milestone-table th { color: #666; background: #fcfcfc; }
+        .milestone-table td:first-child { width: 105px; }
+        .milestone-table td:nth-child(2) { width: 27%; font-weight: 600; }
+        .evidence { color: #555; }
+        .next-step { color: #7a4f00; }
+
+        @media (max-width: 760px) {
+            .main-wrapper { grid-template-columns: 1fr; }
+            .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .homework-heading { grid-template-columns: 54px 1fr; }
+            .milestone-table, .milestone-table tbody, .milestone-table tr, .milestone-table td { display: block; }
+            .milestone-table thead { display: none; }
+            .milestone-table td { width: auto !important; border-top: 0; padding: 5px 10px; }
+            .milestone-table tr { border-top: 1px solid #e5e5e5; padding: 5px 0; }
+        }
         
     </style>
 </head>
@@ -491,6 +566,7 @@
                     <button class="tab active" onclick="switchTab('chat')">💬 Chat</button>
                     <button class="tab" onclick="switchTab('traces')">🔍 LLM Traces</button>
                     <button class="tab" onclick="switchTab('logs')">📋 Logs & Traces</button>
+                    <button class="tab" onclick="switchTab('rubric')">Homework Rubric</button>
                 </div>
                 
                 <!-- Chat Tab -->
@@ -541,6 +617,17 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="rubric-tab" class="tab-content">
+                    <div class="rubric-toolbar">
+                        <div>
+                            <strong>Live homework milestones</strong>
+                            <div id="rubric-summary" class="rubric-summary">Loading repository evidence...</div>
+                        </div>
+                        <button onclick="loadRubric()">Refresh</button>
+                    </div>
+                    <div id="rubric-container" class="rubric-list"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -556,6 +643,7 @@
             document.getElementById("chat-tab").classList.remove("active");
             document.getElementById("traces-tab").classList.remove("active");
             document.getElementById("logs-tab").classList.remove("active");
+            document.getElementById("rubric-tab").classList.remove("active");
             
             // Remove active class from all tab buttons
             document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
@@ -571,8 +659,50 @@
             } else if (tabName === "logs") {
                 document.getElementById("logs-tab").classList.add("active");
                 document.querySelectorAll(".tab")[2].classList.add("active");
+            } else if (tabName === "rubric") {
+                document.getElementById("rubric-tab").classList.add("active");
+                document.querySelectorAll(".tab")[3].classList.add("active");
+                loadRubric();
             }
         }
+
+        async function loadRubric() {
+            const container = document.getElementById("rubric-container");
+            try {
+                const response = await fetch(`${API_URL}/api/homework-progress`, {cache: "no-store"});
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                const summary = data.summary;
+                document.getElementById("rubric-summary").textContent =
+                    `${summary.milestones_complete}/${summary.milestones_total} milestones complete (${summary.percent}%) · Updated ${new Date(data.generated_at).toLocaleTimeString()}`;
+                container.innerHTML = data.homeworks.map(homework => `
+                    <details class="homework-row" ${homework.status === "in_progress" ? "open" : ""}>
+                        <summary class="homework-heading">
+                            <strong>${escapeHtml(homework.id)}</strong>
+                            <span class="homework-title">${escapeHtml(homework.title)}</span>
+                            <span class="rubric-status ${homework.status}">${escapeHtml(homework.status.replace("_", " "))}</span>
+                            <span>${homework.completed}/${homework.total}</span>
+                        </summary>
+                        <table class="milestone-table">
+                            <thead><tr><th>Status</th><th>Milestone</th><th>Evidence</th><th>Next step</th></tr></thead>
+                            <tbody>${homework.milestones.map(item => `
+                                <tr>
+                                    <td><span class="rubric-status ${item.status}">${escapeHtml(item.status)}</span></td>
+                                    <td>${escapeHtml(item.title)}</td>
+                                    <td class="evidence">${escapeHtml(item.evidence)}</td>
+                                    <td class="next-step">${escapeHtml(item.next_step)}</td>
+                                </tr>`).join("")}
+                            </tbody>
+                        </table>
+                    </details>`).join("");
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Unable to load rubric: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        setInterval(() => {
+            if (document.getElementById("rubric-tab").classList.contains("active")) loadRubric();
+        }, 15000);
         
         async function loadTraces() {
             if (!sessionId || !token) return;
