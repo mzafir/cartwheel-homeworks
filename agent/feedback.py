@@ -12,6 +12,7 @@ This feedback is used to improve prompts and create taxonomies of issues.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,7 +22,9 @@ from typing import Any
 from agent.config import REPO_ROOT
 
 
-FEEDBACK_DB = REPO_ROOT / ".feedback.db"
+FEEDBACK_DB = Path(
+    os.environ.get("CARTWHEEL_FEEDBACK_DB", REPO_ROOT / ".feedback.db")
+)
 
 
 @dataclass

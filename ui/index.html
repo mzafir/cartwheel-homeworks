@@ -27,6 +27,17 @@
         
         header h1 { font-size: 2.5em; margin-bottom: 5px; }
         header p { opacity: 0.9; font-size: 1.1em; }
+        header .batch-runner-link {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 14px;
+            border: 1px solid rgba(255,255,255,.7);
+            border-radius: 6px;
+            color: white;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        header .batch-runner-link:hover { background: rgba(255,255,255,.14); }
         
         .main-wrapper {
             display: grid;
@@ -105,6 +116,13 @@
         
         .config-section:last-child {
             border-bottom: none;
+        }
+
+        .model-availability {
+            margin-top: 6px;
+            color: #697386;
+            font-size: 0.8em;
+            line-height: 1.4;
         }
         
         label {
@@ -518,6 +536,7 @@
         <header>
             <h1>🛒 Cartwheel Support Agent</h1>
             <p>Interactive Testing Interface</p>
+            <a class="batch-runner-link" href="/ui/batch.html">Batch Runner</a>
         </header>
         
         <div class="main-wrapper">
@@ -541,6 +560,17 @@
                         <option value="9003">Merchant 9003 (Store 3)</option>
                         <option value="9501">Support 9501</option>
                     </select>
+                </div>
+
+                <div class="config-section">
+                    <label for="model-select">Model</label>
+                    <select id="model-select">
+                        <option value="gpt-4o-mini">GPT-4o mini</option>
+                        <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+                        <option value="claude-opus-4-6">Claude Opus 4.6</option>
+                        <option value="glm-5.2">GLM-5.2</option>
+                    </select>
+                    <div id="model-availability" class="model-availability" aria-live="polite"></div>
                 </div>
                 
                 <button id="start-session-btn" onclick="startSession()">
@@ -635,7 +665,7 @@
     <script>
         let sessionId = null;
         let token = null;
-        const API_URL = "http://localhost:8010";
+        const API_URL = window.location.origin;
         let logs = [];
         
         function switchTab(tabName) {
@@ -1110,6 +1140,37 @@
         }
         
         updateUserOptions();
+
+        async function loadChatModels() {
+            const select = document.getElementById("model-select");
+            const note = document.getElementById("model-availability");
+            try {
+                const response = await fetch(`${API_URL}/api/batch-tests/models`, { cache: "no-store" });
+                if (!response.ok) {
+                    note.textContent = "Provider status is unavailable until Cartwheel is updated.";
+                    return;
+                }
+                const data = await response.json();
+                select.replaceChildren();
+                for (const model of data.models) {
+                    const option = document.createElement("option");
+                    option.value = model.id;
+                    option.textContent = model.available
+                        ? model.label
+                        : `${model.label} (missing ${model.credential_env})`;
+                    option.disabled = !model.available;
+                    select.append(option);
+                }
+                if (data.default_model) select.value = data.default_model;
+                note.textContent = data.default_model
+                    ? "Choose a model for each chat message."
+                    : "No model provider key is configured in this Cartwheel server.";
+            } catch {
+                note.textContent = "Provider status could not be checked.";
+            }
+        }
+
+        loadChatModels();
         
         async function startSession(keepChat = false) {
             const role = document.getElementById("role-select").value;
@@ -1173,6 +1234,12 @@
                 addLog("warn", "Attempted to send message without active session");
                 return;
             }
+
+            const modelSelect = document.getElementById("model-select");
+            if (modelSelect.selectedOptions[0]?.disabled) {
+                showError("That model's provider key is not configured in this Cartwheel server.");
+                return;
+            }
             
             const input = document.getElementById("message-input");
             const message = input.value.trim();
@@ -1201,7 +1268,10 @@
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${token}`
                     },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({
+                        message,
+                        model: document.getElementById("model-select").value
+                    })
                 });
                 
                 // Server restarted and dropped the in-memory session: recreate and retry once
@@ -1214,7 +1284,10 @@
                             "Content-Type": "application/json",
                             "Authorization": `Bearer ${token}`
                         },
-                        body: JSON.stringify({ message })
+                        body: JSON.stringify({
+                            message,
+                            model: document.getElementById("model-select").value
+                        })
                     });
                 }
                 

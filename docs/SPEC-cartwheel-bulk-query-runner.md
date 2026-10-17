@@ -1,6 +1,6 @@
 # Cartwheel bulk query runner
 
-**Status:** proposed for CARTWHEEL-G2. This document records options for review; it does not authorize implementation or live model calls.
+**Status:** approved by CARTWHEEL-G2 CBR1-CBR6; implementation is in progress on `feat/cartwheel-bulk-runner`. A live run is started only by an explicit Run action in the loopback UI and remains bounded by its configured USD ceiling.
 
 ## Intent
 
@@ -18,9 +18,11 @@ The current runner help output has no dry-run flag. The operator checkout also h
 
 The recommendation is a batch-testing view in the existing Cartwheel UI backed by a deterministic runner that reuses the authenticated session and message endpoints. The query bank should be versioned JSONL, with one stable case ID, role/user identity, utterance, feature/failure-mode tags, and expected checks per case. Results should be appendable and resumable, retaining the prompt, role, model, timestamps, reply, structured tool calls, status, errors, and check outcomes.
 
+The current implementation uses `scenarios/bulk_queries.jsonl`, `/ui/batch.html`, and `/api/batch-tests/*` plus `/api/batch-runs/*`. It shows the four course models (GPT-4o mini, Claude Haiku 4.5, Claude Opus 4.6, GLM-5.2), disables choices whose provider key is absent, and accepts only one USD ceiling. The model-rate card is dated 2026-10-17; per-case cost is calculated from SDK input/output token usage. The UI explains the estimate is approximate because provider billing can vary.
+
 The target is 100 curated cases, not a claim to enumerate every possible failure. Coverage should span shopper, merchant, and support permissions; order lookup; product and policy questions; refunds and the $100 approval boundary; cancellation; escalation; and the relevant injection, exfiltration, and prompt-leak probes. Cases stay user inputs to the application and must not be copied into the agent system prompt.
 
-Execution must use a disposable database selected through `CARTWHEEL_DB`. The gate must decide whether one isolated database per full run is sufficient or whether every case needs a separate process/database to prevent one case's mutations from affecting later cases. A plan-only preview, if approved, validates the selected cases and schedule without opening a session, calling the model, or writing results that look like completed runs.
+Execution uses a fresh disposable database, session store, and feedback store per case. A plan-only preview validates the selected cases and schedule without opening a session, calling the model, or writing results that look like completed runs. The worker stops at case boundaries on cancellation or when the spend cap is reached; it stops immediately after any case where model usage cannot be confirmed.
 
 ## Decisions for the gate
 

@@ -26,11 +26,13 @@ import binascii
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from agents import Runner, SQLiteSession
@@ -48,21 +50,33 @@ from agent.auth import ROLES, AuthContext
 from agent.config import REPO_ROOT, db_path
 from observability.instrument import load_env, setup_tracing
 from server.homework_progress import build_homework_progress
+from server.batch_runs import router as batch_runs_router
 
 MAX_TURNS = 12  # cap runaway loops; keeps conversations bounded
-SESSIONS_DB = REPO_ROOT / ".sessions.db"
+SESSIONS_DB = Path(os.environ.get("CARTWHEEL_SESSIONS_DB", REPO_ROOT / ".sessions.db"))
 
 _tracer = trace.get_tracer("cartwheel.server")
+_logger = logging.getLogger("cartwheel.server")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_env()
-    setup_tracing()  # no-op with a warning if LANGFUSE_PUBLIC_KEY is unset
-    yield
+    tracing_enabled = setup_tracing()
+    try:
+        yield
+    finally:
+        if tracing_enabled:
+            try:
+                from langfuse import get_client
+
+                get_client().flush()
+            except Exception as exc:
+                _logger.warning("Langfuse flush failed during shutdown (%s)", type(exc).__name__)
 
 
 app = FastAPI(title="Cartwheel support agent", lifespan=lifespan)
+app.include_router(batch_runs_router)
 
 # Add CORS middleware for the UI
 app.add_middleware(
@@ -280,12 +294,14 @@ async def post_message(
         for tc in tool_calls
     ]
     feedback.log_llm_response(session_id, version, body.message, reply, tool_trace_ids)
+    usage = _extract_usage(result)
 
     return {
         "session_id": session_id,
         "reply": reply,
         "tool_calls": tool_calls,
         "prompt_version": version,
+        "usage": usage,
     }
 
 
@@ -316,6 +332,31 @@ def _extract_tool_calls(result: Any) -> list[dict[str, Any]]:
             if call_id in calls:
                 calls[call_id]["result"] = _parse_json(output)
     return list(calls.values())
+
+
+def _extract_usage(result: Any) -> dict[str, int | bool]:
+    totals = {
+        "requests": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+    }
+    available = False
+    for response in getattr(result, "raw_responses", []):
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            continue
+        input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+        request_count = int(getattr(usage, "requests", 0) or 0)
+        available = available or input_tokens > 0 or output_tokens > 0
+        totals["requests"] += request_count
+        totals["input_tokens"] += input_tokens
+        totals["output_tokens"] += output_tokens
+        totals["total_tokens"] += int(
+            getattr(usage, "total_tokens", 0) or input_tokens + output_tokens
+        )
+    return {**totals, "available": available}
 
 
 class FeedbackSubmit(BaseModel):
