@@ -52,13 +52,60 @@ def setup_openai_tracing() -> bool:
 
 
 
+_USAGE_ATTRIBUTE_KEYS = (
+    ("input_tokens", "gen_ai.usage.input_tokens"),
+    ("output_tokens", "gen_ai.usage.output_tokens"),
+    ("total_tokens", "gen_ai.usage.total_tokens"),
+)
+
+
+def record_generation_usage_fallback(otel_span: Any, span_data: Any) -> bool:
+    """Copy LiteLLM token usage onto a generation span the hook left at zero.
+
+    OpenLLMetry's OpenAI Agents hook reads usage only from
+    `span_data.response.usage`, which the SDK fills for the OpenAI Responses
+    API. `LitellmModel` (Anthropic, Together, ...) stores the same counts in the
+    `span_data.usage` dict and leaves `response` unset, so Langfuse showed
+    0 tokens for every non-OpenAI generation. Returns True when attributes
+    were written.
+    """
+    if getattr(span_data, "response", None) is not None:
+        return False
+    usage = getattr(span_data, "usage", None)
+    if not isinstance(usage, dict):
+        return False
+    wrote = False
+    for usage_key, attribute in _USAGE_ATTRIBUTE_KEYS:
+        value = usage.get(usage_key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            otel_span.set_attribute(attribute, value)
+            wrote = True
+    return wrote
+
+
+def _patch_generation_usage(processor_cls: Any) -> None:
+    """Wrap the hook's generation finaliser with the LiteLLM usage fallback."""
+    original = processor_cls._end_generation_span
+    if getattr(original, "_cartwheel_usage_fallback", False):
+        return
+
+    def _end_generation_span(self: Any, otel_span: Any, span_data: Any, trace_content: bool) -> None:
+        original(self, otel_span, span_data, trace_content)
+        record_generation_usage_fallback(otel_span, span_data)
+
+    _end_generation_span._cartwheel_usage_fallback = True  # type: ignore[attr-defined]
+    processor_cls._end_generation_span = _end_generation_span
+
+
 def instrument_genai(tracer_provider: Any) -> None:
     """Install GenAI recording once, using the supplied OTel provider."""
     global _genai_instrumented
     if _genai_instrumented:
         return
     from opentelemetry.instrumentation.openai_agents import OpenAIAgentsInstrumentor
+    from opentelemetry.instrumentation.openai_agents._hooks import OpenTelemetryTracingProcessor
 
+    _patch_generation_usage(OpenTelemetryTracingProcessor)
     os.environ.setdefault("TRACELOOP_TRACE_CONTENT", "false")
     # Export only through Langfuse, not the SDK's separate hosted tracing path.
     instrumentor = OpenAIAgentsInstrumentor(replace_existing_processors=True)

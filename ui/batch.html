@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartwheel Batch Runner</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #252b39;
+            --muted: #697386;
+            --line: #dce1eb;
+            --blue: #5265c8;
+            --blue-dark: #3f50a8;
+            --green: #177245;
+            --red: #a33d3d;
+            --surface: #fff;
+            --soft: #f5f7fb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .page { width: min(1400px, 100%); margin: 0 auto; }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            color: white;
+            margin: 4px 0 20px;
+        }
+        h1 { margin: 0; font-size: 28px; }
+        h2 { margin: 0 0 16px; font-size: 17px; }
+        .subtitle { margin: 4px 0 0; opacity: .9; font-size: 14px; }
+        a { color: inherit; }
+        .back-link {
+            padding: 9px 14px;
+            border: 1px solid rgba(255,255,255,.65);
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover { background: rgba(255,255,255,.14); }
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+        .panel {
+            min-width: 0;
+            padding: 18px;
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 8px 28px rgba(27, 31, 55, .16);
+        }
+        .settings { display: grid; gap: 13px; }
+        .field { display: grid; gap: 6px; }
+        label { font-size: 13px; font-weight: 650; }
+        input, select {
+            min-width: 0;
+            width: 100%;
+            height: 39px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 5px;
+            color: var(--ink);
+            background: white;
+            font: inherit;
+        }
+        input:focus, select:focus, button:focus-visible, a:focus-visible {
+            outline: 3px solid rgba(82, 101, 200, .28);
+            outline-offset: 1px;
+        }
+        .rate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button {
+            min-height: 38px;
+            padding: 8px 10px;
+            border: 0;
+            border-radius: 5px;
+            background: var(--blue);
+            color: white;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) { background: var(--blue-dark); }
+        button:disabled { background: #aeb5c6; cursor: not-allowed; }
+        button.secondary { background: #e9edf6; color: var(--ink); }
+        button.secondary:hover:not(:disabled) { background: #dce2f0; }
+        button.danger { background: #a33d3d; }
+        button.danger:disabled { background: #aeb5c6; }
+        .message { min-height: 20px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+        .message.error { color: var(--red); }
+        .status-box { padding: 11px; border: 1px solid var(--line); border-radius: 5px; background: var(--soft); }
+        .status-title { font-weight: 700; font-size: 14px; }
+        .status-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .case-panel { display: grid; gap: 12px; }
+        .case-toolbar { display: grid; grid-template-columns: 150px 1fr auto auto auto; gap: 8px; align-items: end; }
+        .case-toolbar button { white-space: nowrap; }
+        .case-count { align-self: center; color: var(--muted); font-size: 12px; text-align: right; }
+        .case-list {
+            max-height: 68vh;
+            overflow: auto;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .case-row {
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr);
+            gap: 9px;
+            padding: 10px 4px;
+            border-bottom: 1px solid #edf0f5;
+        }
+        .case-row:last-child { border-bottom: 0; }
+        .case-row input { width: 17px; height: 17px; margin: 2px 0 0; }
+        .case-id { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+        .case-query { margin-top: 4px; font-size: 13px; line-height: 1.4; }
+        .case-meta { margin-top: 4px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+        .results-panel { margin-top: 16px; }
+        .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+        .results-head span { color: var(--muted); font-size: 12px; }
+        .results-actions { display: flex; align-items: center; gap: 8px; }
+        .results-list { display: grid; gap: 7px; }
+        .result-row {
+            display: grid;
+            grid-template-columns: minmax(130px, 1fr) 90px minmax(100px, 1fr) 100px;
+            gap: 10px;
+            align-items: start;
+            padding: 9px 0;
+            border-top: 1px solid #edf0f5;
+            font-size: 12px;
+        }
+        .result-state { font-weight: 700; text-transform: capitalize; }
+        .passed { color: var(--green); }
+        .failed, .error { color: var(--red); }
+        .inconclusive { color: #8a6500; }
+        .result-detail { color: var(--muted); overflow-wrap: anywhere; }
+        @media (max-width: 800px) {
+            body { padding: 12px; }
+            .workspace { grid-template-columns: 1fr; }
+            .case-toolbar { grid-template-columns: 1fr 1fr; }
+            .case-toolbar .field, .case-count { grid-column: 1 / -1; }
+            .case-count { text-align: left; }
+            .case-list { max-height: 48vh; }
+            .result-row { grid-template-columns: minmax(0, 1fr) 85px; }
+            .result-detail { grid-column: 1 / -1; }
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <header>
+        <div>
+            <h1>Batch Runner</h1>
+            <p class="subtitle">Cartwheel authenticated API tests</p>
+        </div>
+        <a class="back-link" href="/ui/">Chat</a>
+    </header>
+
+    <div class="workspace">
+        <aside class="panel settings" aria-label="Run settings">
+            <h2>Run settings</h2>
+            <div class="field">
+                <label for="model">Model</label>
+                <select id="model" required></select>
+            </div>
+            <div class="field">
+                <label for="max-spend">Maximum run spend (USD)</label>
+                <input id="max-spend" type="number" min="0.0001" step="0.01" value="5" required>
+            </div>
+            <div class="message">The reserve estimate uses current standard model pricing; actual provider billing may vary.</div>
+            <div class="actions">
+                <button id="preview">Preview</button>
+                <button id="run" disabled>Run selected</button>
+                <button id="stop" class="danger" disabled>Stop after case</button>
+                <button id="resume" class="secondary" disabled>Resume</button>
+            </div>
+            <div id="notice" class="message" role="status" aria-live="polite"></div>
+            <div id="plan" class="status-box" hidden>
+                <div class="status-title">Plan preview</div>
+                <div id="plan-detail" class="status-meta"></div>
+            </div>
+            <div id="run-status" class="status-box" hidden>
+                <div id="run-title" class="status-title">No active run</div>
+                <div id="run-detail" class="status-meta"></div>
+            </div>
+        </aside>
+
+        <section class="panel case-panel" aria-label="Query bank">
+            <div class="case-toolbar">
+                <div class="field">
+                    <label for="role-filter">Role</label>
+                    <select id="role-filter">
+                        <option value="all">All roles</option>
+                        <option value="shopper">Shopper</option>
+                        <option value="merchant">Merchant</option>
+                        <option value="support">Support</option>
+                    </select>
+                </div>
+                <div class="case-count" id="case-count">Loading cases</div>
+                <button id="load-cases" class="secondary">Load 100 cases</button>
+                <button id="select-visible" class="secondary">Select visible</button>
+                <button id="clear-selection" class="secondary">Clear selection</button>
+            </div>
+            <div id="case-list" class="case-list" role="list" aria-label="Test cases"></div>
+        </section>
+    </div>
+
+    <section class="panel results-panel" aria-label="Run results">
+        <div class="results-head">
+            <h2>Latest results</h2>
+            <div class="results-actions">
+                <span id="result-count">No run selected</span>
+                <button id="clear-run-view" class="secondary" disabled>Clear run view</button>
+            </div>
+        </div>
+        <div id="results-list" class="results-list"></div>
+    </section>
+</main>
+<script>
+    const state = { cases: [], models: [], selectedIds: new Set(), runId: localStorage.getItem("cartwheel-batch-run-id"), preview: null, pollTimer: null };
+    const byId = (id) => document.getElementById(id);
+
+    function settingsPayload() {
+        return {
+            case_ids: state.cases.filter((item) => state.selectedIds.has(item.id)).map((item) => item.id),
+            model: byId("model").value.trim(),
+            max_spend_usd: Number(byId("max-spend").value),
+        };
+    }
+
+    function showNotice(text, isError = false) {
+        const node = byId("notice");
+        node.textContent = text;
+        node.classList.toggle("error", isError);
+    }
+
+    async function api(path, options = {}) {
+        let response;
+        try {
+            response = await fetch(path, {
+                ...options,
+                headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+            });
+        } catch {
+            throw new Error("Cartwheel is not reachable. Open this page from the running Cartwheel app.");
+        }
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch {
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
+        if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+        return data;
+    }
+
+    function renderCases() {
+        const filter = byId("role-filter").value;
+        const list = byId("case-list");
+        list.replaceChildren();
+        const visible = state.cases.filter((item) => filter === "all" || item.role === filter);
+        for (const item of visible) {
+            const row = document.createElement("div");
+            row.className = "case-row";
+            row.setAttribute("role", "listitem");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "case-check";
+            checkbox.value = item.id;
+            checkbox.checked = state.selectedIds.has(item.id);
+            checkbox.setAttribute("aria-label", `Select ${item.id}`);
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) state.selectedIds.add(item.id);
+                else state.selectedIds.delete(item.id);
+                invalidatePreview();
+            });
+            const content = document.createElement("div");
+            const id = document.createElement("div");
+            id.className = "case-id";
+            id.textContent = item.id;
+            const query = document.createElement("div");
+            query.className = "case-query";
+            query.textContent = item.query;
+            const meta = document.createElement("div");
+            meta.className = "case-meta";
+            const coverageTags = item.tags.filter((tag) => tag !== item.role);
+            meta.textContent = `${item.role}${coverageTags.length ? ` · ${coverageTags.join(" · ")}` : ""}${item.review ? " · review" : ""}`;
+            content.append(id, query, meta);
+            row.append(checkbox, content);
+            list.append(row);
+        }
+        byId("case-count").textContent = `${visible.length} shown · ${document.querySelectorAll(".case-check:checked").length} selected · ${state.cases.length} total`;
+    }
+
+    function invalidatePreview() {
+        state.preview = null;
+        byId("run").disabled = true;
+        byId("plan").hidden = true;
+        renderCaseCount();
+    }
+
+    function renderCaseCount() {
+        const filter = byId("role-filter").value;
+        const visible = state.cases.filter((item) => filter === "all" || item.role === filter).length;
+        byId("case-count").textContent = `${visible} shown · ${document.querySelectorAll(".case-check:checked").length} selected · ${state.cases.length} total`;
+    }
+
+    async function loadCases() {
+        byId("case-count").textContent = "Loading cases…";
+        const data = await api("/api/batch-tests/cases");
+        state.cases = data.cases;
+        state.selectedIds = new Set(state.cases.map((item) => item.id));
+        renderCases();
+    }
+
+    async function loadModels() {
+        const data = await api("/api/batch-tests/models");
+        state.models = data.models;
+        const select = byId("model");
+        select.replaceChildren();
+        for (const item of data.models) {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.available ? item.label : `${item.label} (missing ${item.credential_env})`;
+            option.disabled = !item.available;
+            select.append(option);
+        }
+        select.value = data.default_model || "";
+        if (!state.models.some((item) => item.available)) {
+            showNotice("No provider key is configured in this Cartwheel server. Add the required key to the local .env.", true);
+        }
+    }
+
+    function previewPayload() {
+        const payload = settingsPayload();
+        if (!payload.case_ids.length) throw new Error("Select at least one case.");
+        if (!payload.model) throw new Error("Choose a model with a configured provider key.");
+        if (!Number.isFinite(payload.max_spend_usd) || payload.max_spend_usd <= 0) throw new Error("Enter a positive spend ceiling.");
+        return payload;
+    }
+
+    byId("preview").addEventListener("click", async () => {
+        try {
+            showNotice("Building offline plan…");
+            const plan = await api("/api/batch-tests/preview", { method: "POST", body: JSON.stringify(previewPayload()) });
+            state.preview = plan;
+            byId("plan-detail").textContent = `${plan.case_count} cases · ${plan.batches.length} batches of 10 · ${plan.wait_count} waits × 5 s · estimated reserve $${plan.estimated_total_usd.toFixed(4)} · ${plan.runnable_case_count} fit the $${plan.max_spend_usd.toFixed(2)} ceiling`;
+            byId("plan").hidden = false;
+            const model = state.models.find((item) => item.id === plan.model);
+            byId("run").disabled = plan.runnable_case_count === 0 || !model?.available;
+            showNotice(model?.available
+                ? "Preview complete. No API or model requests were sent."
+                : `Preview complete. Run is disabled until ${model?.credential_env || "a model provider key"} is configured.`);
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    });
+
+    byId("run").addEventListener("click", async () => {
+        if (!state.preview) return;
+        try {
+            const started = await api("/api/batch-runs", { method: "POST", body: JSON.stringify(previewPayload()) });
+            state.runId = started.run_id;
+            localStorage.setItem("cartwheel-batch-run-id", state.runId);
+            byId("clear-run-view").disabled = false;
+            byId("run").disabled = true;
+            byId("stop").disabled = false;
+            byId("resume").disabled = true;
+            showNotice("Run started. Each case uses a fresh world and session database.");
+            pollStatus();
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    });
+
+    byId("stop").addEventListener("click", async () => {
+        if (!state.runId) return;
+        try {
+            await api(`/api/batch-runs/${state.runId}/stop`, { method: "POST", body: "{}" });
+            showNotice("Stop requested. The current case will finish before the worker stops.");
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    });
+
+    byId("resume").addEventListener("click", async () => {
+        if (!state.runId) return;
+        try {
+            await api(`/api/batch-runs/${state.runId}/resume`, { method: "POST", body: "{}" });
+            byId("stop").disabled = false;
+            byId("resume").disabled = true;
+            showNotice("Run resumed. Matching completed cases will be skipped.");
+            pollStatus();
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    });
+
+    byId("clear-run-view").addEventListener("click", () => {
+        if (state.pollTimer) clearTimeout(state.pollTimer);
+        state.runId = null;
+        localStorage.removeItem("cartwheel-batch-run-id");
+        byId("clear-run-view").disabled = true;
+        byId("run-status").hidden = true;
+        byId("result-count").textContent = "No run selected";
+        byId("results-list").replaceChildren();
+        showNotice("Run view cleared. Saved results remain on disk.");
+    });
+
+    async function pollStatus() {
+        if (!state.runId) return;
+        try {
+            const data = await api(`/api/batch-runs/${state.runId}`);
+            byId("clear-run-view").disabled = false;
+            byId("run-status").hidden = false;
+            byId("run-title").textContent = `${data.state.replaceAll("_", " ")} · ${data.completed}/${data.total}`;
+            byId("run-detail").textContent = `Spent estimate $${Number(data.spent_usd || 0).toFixed(4)} of $${Number(data.max_spend_usd || 0).toFixed(2)}${data.current_case_id ? ` · ${data.current_case_id}` : ""}${data.stop_reason ? ` · ${data.stop_reason}` : ""}`;
+            byId("stop").disabled = !["queued", "running"].includes(data.state);
+            byId("resume").disabled = !["stopped", "stopped_usage_unavailable", "failed"].includes(data.state);
+            renderResults(data.results || []);
+            if (["queued", "running"].includes(data.state)) state.pollTimer = setTimeout(pollStatus, 1500);
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    }
+
+    function renderResults(results) {
+        const list = byId("results-list");
+        list.replaceChildren();
+        byId("result-count").textContent = `${results.length} case results`;
+        for (const item of [...results].reverse()) {
+            const row = document.createElement("div");
+            row.className = "result-row";
+            const id = document.createElement("div");
+            id.className = "case-id";
+            id.textContent = item.case_id;
+            const outcome = document.createElement("div");
+            outcome.className = `result-state ${item.outcome || item.status}`;
+            outcome.textContent = item.outcome || item.status;
+            const detail = document.createElement("div");
+            detail.className = "result-detail";
+            const summary = item.error || item.usage_note || (item.reply || "").slice(0, 120);
+            const tags = (item.tags || []).join(", ");
+            detail.textContent = [tags, summary, item.review].filter(Boolean).join(" · ");
+            const cost = document.createElement("div");
+            cost.className = "result-detail";
+            cost.textContent = `$${Number(item.cost_usd || 0).toFixed(5)}`;
+            row.append(id, outcome, detail, cost);
+            list.append(row);
+        }
+    }
+
+    byId("role-filter").addEventListener("change", renderCases);
+    byId("load-cases").addEventListener("click", () => loadCases().then(() => showNotice(`${state.cases.length} cases loaded.`)).catch((error) => showNotice(error.message, true)));
+    byId("select-visible").addEventListener("click", () => {
+        const filter = byId("role-filter").value;
+        for (const item of state.cases) {
+            if (filter === "all" || item.role === filter) state.selectedIds.add(item.id);
+        }
+        renderCases();
+        invalidatePreview();
+    });
+    byId("clear-selection").addEventListener("click", () => {
+        state.selectedIds.clear();
+        renderCases();
+        invalidatePreview();
+    });
+    for (const id of ["model", "max-spend"]) {
+        byId(id).addEventListener("input", invalidatePreview);
+        byId(id).addEventListener("change", invalidatePreview);
+    }
+    byId("clear-run-view").disabled = !state.runId;
+
+    Promise.all([loadCases(), loadModels()]).then(() => {
+        if (state.runId) pollStatus();
+    }).catch((error) => showNotice(error.message, true));
+</script>
+</body>
+</html>
