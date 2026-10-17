@@ -1,0 +1,96 @@
+[name: Cartwheel HW1 Refund Query]
+[tags: cartwheel, refund, homework, testing]
+Can I get a refund for order 4455? It's not what I expected.
+---
+[name: Cartwheel Permission Denied Test]
+[tags: cartwheel, auth, permission, testing]
+Show me order 4127.
+---
+[name: Python Debugging Context]
+[tags: python, debugging, analysis]
+I need to debug a Python issue. Please:
+1. Ask clarifying questions about the error
+2. Suggest step-by-step debugging approach
+3. Provide code snippets for minimal reproduction
+4. Explain the root cause clearly
+5. Suggest prevention measures for similar issues
+---
+[name: Code Review Checklist]
+[tags: code-review, quality, process]
+Please review this code for:
+- Correctness and logic errors
+- Edge cases and error handling
+- Performance and scalability
+- Code style and readability
+- Security vulnerabilities
+- Test coverage
+Provide specific examples and actionable suggestions.
+---
+[name: API Design Specification]
+[tags: api, design, specification]
+Design a RESTful API for:
+- Endpoints with HTTP methods and paths
+- Request/response schemas (JSON)
+- Error handling and status codes
+- Authentication/authorization
+- Rate limiting strategy
+- Versioning approach
+Include example requests and responses.
+---
+[name: Refactoring Guidance]
+[tags: refactoring, improvement, patterns]
+Help me refactor this code to:
+1. Reduce duplication
+2. Improve readability
+3. Apply SOLID principles
+4. Enhance testability
+5. Better error handling
+Show before/after examples and explain the benefits.
+---
+[name: Test Case Analysis]
+[tags: testing, qa, analysis]
+Analyze these test cases:
+- Are they comprehensive?
+- Do they cover edge cases?
+- Are there any gaps?
+- Are there redundant tests?
+Suggest improvements and additional test scenarios.
+---
+[name: System Design Question]
+[tags: architecture, design, scaling]
+For a system that needs to:
+1. Handle high throughput
+2. Ensure data consistency
+3. Support distributed deployment
+4. Minimize latency
+
+Propose:
+- Architecture diagram
+- Technology stack rationale
+- Failure scenarios and recovery
+- Monitoring and observability strategy
+---
+[name: Documentation Improvement]
+[tags: documentation, clarity, user-guide]
+Review this documentation for:
+- Clarity and completeness
+- Accuracy and up-to-date information
+- Code example correctness
+- Organization and flow
+- Accessibility for target audience
+Suggest specific rewrites and improvements.
+---
+[name: Performance Optimization]
+[tags: performance, optimization, tuning]
+Profile and optimize this code for:
+- Execution speed
+- Memory usage
+- I/O efficiency
+- Concurrency
+
+Provide:
+- Bottleneck analysis
+- Optimization techniques
+- Benchmarks (before/after)
+- Trade-offs and considerations
+---

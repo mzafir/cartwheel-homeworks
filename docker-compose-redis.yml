@@ -1,0 +1,40 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cartwheel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass prompts123
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - cartwheel-net
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: cartwheel-redis-insight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis_insight_data:/data
+    environment:
+      RITM_TELEMETRY_ENABLED: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cartwheel-net
+
+volumes:
+  redis_data:
+  redis_insight_data:
+
+networks:
+  cartwheel-net:
+    driver: bridge
+
